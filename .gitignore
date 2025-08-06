@@ -1,0 +1,16 @@
+node_modules
+package-lock.json
+yarn.lock
+
+.DS_Store
+.cache
+.env
+.output
+/build/
+/api/
+/server/build
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+.tanstack
