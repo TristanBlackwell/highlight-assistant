@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@base-ui-components/react": "^1.0.0-beta.2",
     "@tailwindcss/vite": "^4.1.11",
     "@tanstack/react-router": "^1.130.12",
     "@tanstack/react-start": "^1.130.15",
