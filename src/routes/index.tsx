@@ -1,10 +1,48 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import AssistantPopover from "@/components/assistant-popover";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
 function Home() {
+  const [highlightAnchor, setHighlightAnchor] = useState<{
+    getBoundingClientRect: () => DOMRect;
+    contextElement: HTMLElement;
+  } | null>(null);
+  const [highlightedText, setHighlightedText] = useState<string>("");
+
+  useEffect(() => {
+    const handleHighlightSelection = () => {
+      const selection = window.getSelection();
+      const text = selection?.toString().trim();
+
+      if (text && selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        requestAnimationFrame(() => {
+          setHighlightedText(text);
+          setHighlightAnchor({
+            getBoundingClientRect: () => rect,
+            contextElement: document.body,
+          });
+        });
+      } else {
+        setHighlightAnchor(null);
+      }
+    };
+
+    document.addEventListener("mouseup", handleHighlightSelection);
+    document.addEventListener("keyup", handleHighlightSelection);
+
+    return () => {
+      document.removeEventListener("mouseup", handleHighlightSelection);
+      document.removeEventListener("keyup", handleHighlightSelection);
+    };
+  }, []);
+
   return (
     <div className="h-screen">
       <div className="max-w-2xl h-full mx-auto p-4 flex flex-col gap-8">
@@ -66,6 +104,7 @@ function Home() {
           </p>
         </div>
       </div>
+      <AssistantPopover anchor={highlightAnchor} />
     </div>
   );
 }
