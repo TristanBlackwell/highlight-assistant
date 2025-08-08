@@ -1,17 +1,39 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import AssistantPopover from "@/components/assistant-popover";
+import PencilIcon from "@/components/icons/pencil";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
 function Home() {
+  const [highlightMode, setHighlightMode] = useState(false);
   const [highlightAnchor, setHighlightAnchor] = useState<{
     getBoundingClientRect: () => DOMRect;
     contextElement: HTMLElement;
   } | null>(null);
   const [highlightedText, setHighlightedText] = useState<string>("");
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.code !== "KeyH") {
+        return;
+      }
+      if (highlightMode && highlightedText) {
+        return;
+      }
+
+      setHighlightMode(!highlightMode);
+    };
+
+    document.addEventListener("keydown", handleKeyPress);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyPress);
+    };
+  }, [highlightMode, highlightedText]);
 
   useEffect(() => {
     const handleHighlightSelection = () => {
@@ -31,6 +53,7 @@ function Home() {
         });
       } else {
         setHighlightAnchor(null);
+        setHighlightedText("");
       }
     };
 
@@ -44,7 +67,23 @@ function Home() {
   }, []);
 
   return (
-    <div className="h-screen">
+    <div className="h-screen relative">
+      <div id="highlight-button" className="absolute bottom-6 left-6">
+        <button
+          type="button"
+          title="Highlight mode"
+          className={cn(
+            "p-2 rounded-md outline outline-gray-200 hover:outline-gray-300 shadow-sm shadow-gray-200 hover:shadow-gray-300 text-gray-500 hover:text-gray-600 transition-all",
+            highlightMode && "bg-gray-100 scale-95"
+          )}
+          onClick={() => {
+            document.getSelection()?.removeAllRanges();
+            setHighlightMode(!highlightMode);
+          }}
+        >
+          <PencilIcon className="size-6" />
+        </button>
+      </div>
       <div className="max-w-2xl h-full mx-auto p-4 flex flex-col gap-8">
         <nav className="h-min flex gap-2">
           <div className="rounded-full size-6 bg-emerald-700" />
@@ -59,7 +98,13 @@ function Home() {
           </div>
         </nav>
         <div>
-          <p className="prose">
+          <p
+            className={cn(
+              "prose",
+              highlightMode &&
+                "selection:bg-emerald-300 selection:text-emerald-900"
+            )}
+          >
             Most forms of universality themselves refer to some sort of infinity
             – though they can always be interpreted in terms of something being
             unlimited rather than actually infinite. This is what opponents of
@@ -104,7 +149,7 @@ function Home() {
           </p>
         </div>
       </div>
-      <AssistantPopover anchor={highlightAnchor} />
+      <AssistantPopover anchor={highlightMode ? highlightAnchor : null} />
     </div>
   );
 }
