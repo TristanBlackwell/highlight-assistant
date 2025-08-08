@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import AssistantPopover from "@/components/assistant-popover";
+import HighlightPopover from "@/components/highlightPopover";
 import PencilIcon from "@/components/icons/pencil";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import AssistantCard from "@/components/assistantCard";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -15,6 +17,7 @@ function Home() {
     contextElement: HTMLElement;
   } | null>(null);
   const [highlightedText, setHighlightedText] = useState<string>("");
+  const [assistantCardOpen, setAssistantCardOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -53,6 +56,7 @@ function Home() {
         });
       } else {
         setHighlightAnchor(null);
+        setAssistantCardOpen(false);
         setHighlightedText("");
       }
     };
@@ -69,21 +73,24 @@ function Home() {
   return (
     <div className="h-screen relative">
       <div id="highlight-button" className="absolute bottom-6 left-6">
-        <button
+        <Button
           type="button"
           title="Highlight mode"
-          className={cn(
-            "p-2 rounded-md outline outline-gray-200 hover:outline-gray-300 shadow-sm shadow-gray-200 hover:shadow-gray-300 text-gray-500 hover:text-gray-600 transition-all",
-            highlightMode && "bg-gray-100 scale-95"
-          )}
+          className={cn("bg-white", highlightMode && "bg-gray-100 scale-95")}
           onClick={() => {
             document.getSelection()?.removeAllRanges();
             setHighlightMode(!highlightMode);
           }}
         >
           <PencilIcon className="size-6" />
-        </button>
+        </Button>
       </div>
+      <AssistantCard
+        open={assistantCardOpen}
+        handleOpenChange={(open) => {
+          setAssistantCardOpen(open);
+        }}
+      />
       <div className="max-w-2xl h-full mx-auto p-4 flex flex-col gap-8">
         <nav className="h-min flex gap-2">
           <div className="rounded-full size-6 bg-emerald-700" />
@@ -149,7 +156,13 @@ function Home() {
           </p>
         </div>
       </div>
-      <AssistantPopover anchor={highlightMode ? highlightAnchor : null} />
+      <HighlightPopover
+        anchor={highlightMode ? highlightAnchor : null}
+        onAskClicked={() => {
+          setHighlightAnchor(null);
+          setAssistantCardOpen(true);
+        }}
+      />
     </div>
   );
 }
