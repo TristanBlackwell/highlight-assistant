@@ -1,10 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import {
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import AssistantCard from "@/components/assistantCard";
 import HighlightPopover from "@/components/highlightPopover";
 import PencilIcon from "@/components/icons/pencil";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import AssistantCard from "@/components/assistantCard";
+import { EXCERPT } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+
+interface Highlight {
+  start: number;
+  end: number;
+  text: string;
+}
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -16,15 +29,16 @@ function Home() {
     getBoundingClientRect: () => DOMRect;
     contextElement: HTMLElement;
   } | null>(null);
-  const [highlightedText, setHighlightedText] = useState<string>("");
   const [assistantCardOpen, setAssistantCardOpen] = useState(false);
 
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+
+  const textContainerRef = useRef<HTMLParagraphElement>(null);
+
+  // Highlight mode `h` key shortcut listener
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.code !== "KeyH") {
-        return;
-      }
-      if (highlightMode && highlightedText) {
         return;
       }
 
@@ -36,39 +50,123 @@ function Home() {
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
-  }, [highlightMode, highlightedText]);
+  }, [highlightMode]);
+
+  const getCharOffset = useCallback((root: Node, node, offset: number) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let count = 0;
+
+    while (walker.nextNode()) {
+      const current = walker.currentNode;
+      if (current === node) {
+        return count + offset;
+      }
+      count += current.textContent?.length ?? 0;
+    }
+    return count;
+  }, []);
+
+  const mergeHighlights = useCallback((ranges) => {
+    if (!ranges.length) return [];
+
+    // Sort by start index
+    const sorted = [...ranges].sort((a, b) => a.start - b.start);
+    const merged = [sorted[0]];
+
+    for (let i = 1; i < sorted.length; i++) {
+      const last = merged[merged.length - 1];
+      const current = sorted[i];
+
+      if (current.start <= last.end) {
+        // Merge overlaps or touching ranges
+        last.end = Math.max(last.end, current.end);
+        last.text = EXCERPT.slice(last.start, last.end);
+      } else {
+        merged.push(current);
+      }
+    }
+
+    return merged;
+  }, []);
 
   useEffect(() => {
     const handleHighlightSelection = () => {
-      const selection = window.getSelection();
-      const text = selection?.toString().trim();
-
-      if (text && selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-
-        requestAnimationFrame(() => {
-          setHighlightedText(text);
-          setHighlightAnchor({
-            getBoundingClientRect: () => rect,
-            contextElement: document.body,
-          });
-        });
-      } else {
-        setHighlightAnchor(null);
-        setAssistantCardOpen(false);
-        setHighlightedText("");
+      if (!highlightMode) {
+        return;
       }
+
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        setHighlightAnchor(null);
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      // Selection is outside of text container
+      if (!textContainerRef.current?.contains(range.commonAncestorContainer)) {
+        return;
+      }
+
+      const start = getCharOffset(
+        textContainerRef.current,
+        range.startContainer,
+        range.startOffset
+      );
+      const end = getCharOffset(
+        textContainerRef.current,
+        range.endContainer,
+        range.endOffset
+      );
+
+      if (start !== end) {
+        const newHighlight = {
+          start: Math.min(start, end),
+          end: Math.max(start, end),
+          text: EXCERPT.slice(Math.min(start, end), Math.max(start, end)),
+        };
+
+        setHighlights((prev) => mergeHighlights([...prev, newHighlight]));
+      }
+
+      requestAnimationFrame(() => {
+        setHighlightAnchor({
+          getBoundingClientRect: () => rect,
+          contextElement: document.body,
+        });
+      });
     };
 
     document.addEventListener("mouseup", handleHighlightSelection);
-    document.addEventListener("keyup", handleHighlightSelection);
 
     return () => {
       document.removeEventListener("mouseup", handleHighlightSelection);
-      document.removeEventListener("keyup", handleHighlightSelection);
     };
-  }, []);
+  }, [getCharOffset, highlightMode, mergeHighlights]);
+
+  function renderWithHighlights(text: string, highlights) {
+    if (!highlights.length) return text;
+
+    const sorted = [...highlights].sort((a, b) => a.start - b.start);
+    const parts: ReactElement[] = [];
+    let lastIndex = 0;
+
+    sorted.forEach(({ start, end }, i) => {
+      parts.push(
+        <span key={`t-${i}-before`}>{text.slice(lastIndex, start)}</span>
+      );
+      parts.push(
+        <span key={`t-${i}-hl`} className="bg-emerald-300 text-emerald-900">
+          {text.slice(start, end)}
+        </span>
+      );
+      lastIndex = end;
+    });
+
+    parts.push(<span key="t-end">{text.slice(lastIndex)}</span>);
+    return parts;
+  }
 
   return (
     <div className="h-screen relative">
@@ -106,53 +204,14 @@ function Home() {
         </nav>
         <div>
           <p
+            ref={textContainerRef}
             className={cn(
               "prose",
               highlightMode &&
                 "selection:bg-emerald-300 selection:text-emerald-900"
             )}
           >
-            Most forms of universality themselves refer to some sort of infinity
-            – though they can always be interpreted in terms of something being
-            unlimited rather than actually infinite. This is what opponents of
-            infinity call a ‘potential infinity’ rather than a ‘realized’ one.
-            For instance, the beginning of infinity can be described either as a
-            condition where ‘progress in the future will be unbounded’ or as the
-            condition where ‘an infinite amount of progress will be made’. But I
-            use those concepts interchangeably, because in this context there is
-            no substantive difference between them.
-            <br />
-            There is a philosophy of mathematics called finitism, the doctrine
-            that only finite abstract entities exist. So, for instance, there
-            are infinitely many natural numbers, but finitists insist that that
-            is just a manner of speaking. They say that the literal truth is
-            only that there is a finite rule for generating each natural number
-            (or, more precisely, each numeral) from the previous one, and
-            nothing literally infinite is involved. But this doctrine runs into
-            the following problem: is there a largest natural number or not? If
-            there is, then that contradicts the statement that there is a rule
-            that defines a larger one. If there is not, then there are not
-            finitely many natural numbers. Finitists are then obliged to deny a
-            principle of logic: the ‘law of the excluded middle’, which is that,
-            for every meaningful proposition, either it or its negation is true.
-            So finitists say that, although there is no largest number, there is
-            not an infinity of numbers either.
-            <br />
-            Finitism is instrumentalism applied to mathematics: it is a
-            principled rejection of explanation. It attempts to see mathematical
-            entities purely as procedures that mathematicians follow, rules for
-            making marks on paper and so on – useful in some situations, but not
-            referring to anything real other than the finite objects of
-            experience such as two apples or three oranges. And so finitism is
-            inherently anthropocentric – which is not surprising, since it
-            regards parochialism as a virtue of a theory rather than a vice. It
-            also suffers from another fatal flaw that instrumentalism and
-            empiricism have in regard to science, which is that it assumes that
-            mathematicians have some sort of privileged access to finite
-            entities which they do not have for infinite ones. But that is not
-            the case. All observation is theory-laden. All abstract theorizing
-            is theory-laden too. All access to abstract entities, finite or
-            infinite, is via theory, just as for physical entities.
+            {renderWithHighlights(EXCERPT, highlights)}
           </p>
         </div>
       </div>
