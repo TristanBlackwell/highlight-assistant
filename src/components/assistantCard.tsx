@@ -43,7 +43,11 @@ export default function AssistantCard({
             Ask a question about the highlighted text.
           </p>
           <div className="mt-3">
-            <InputWithSubmit placeholder="What is..." className="h-8 p-1" />
+            <InputWithSubmit
+              placeholder="What is..."
+              className="h-8 p-1"
+              onButtonSubmit={(input) => console.log("Input: ", input)}
+            />
           </div>
         </motion.div>
       )}
