@@ -9,11 +9,14 @@ import { Button } from "./ui/button";
 import { InputWithSubmit } from "./ui/input";
 
 const messageSchema = z.object({
-  content: z.string().min(1),
+  id: z.string(),
+  content: z.string(),
   role: z.literal(["assistant", "user"]),
   dateCreated: z.date(),
 });
 type Message = z.infer<typeof messageSchema>;
+
+type LocalMessage = Message & { isPending?: boolean };
 
 const assistantRequestSchema = z.object({
   messages: messageSchema.array(),
@@ -46,8 +49,14 @@ const getAssistantResponse = createServerFn({ method: "POST" })
   });
 
 const testMessages = [
-  { role: "user" as const, content: "Explain this", dateCreated: new Date() },
   {
+    id: crypto.randomUUID(),
+    role: "user" as const,
+    content: "Explain this",
+    dateCreated: new Date(),
+  },
+  {
+    id: crypto.randomUUID(),
     role: "assistant" as const,
     content: `Short version: finitism is the view that only finite mathematical things truly exist. Finitists accept individual finite objects (like the number 7, or the set {1,2,3}) but deny the existence of completed infinite objects (like the set of all natural numbers or the set of all real numbers).
 
@@ -85,7 +94,7 @@ export default function AssistantCard({
   const messagesRef = useRef<HTMLDivElement>(null);
   const [awaitingResponse, setAwaitingResponse] = useState(false);
 
-  const [chatHistory, setChatHistory] = useState<Message[]>(testMessages);
+  const [chatHistory, setChatHistory] = useState<LocalMessage[]>([]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -98,22 +107,41 @@ export default function AssistantCard({
       if (!inputRef.current) {
         throw new Error("Unable to determine input value");
       }
-      const chatHistoryWithInput = [
+      const chatHistoryWithInput: Message[] = [
         ...chatHistory,
         {
+          id: crypto.randomUUID(),
           role: "user",
           content: inputRef.current.value,
           dateCreated: new Date(),
-        } as const,
+        },
       ];
       setChatHistory(chatHistoryWithInput);
       inputRef.current.value = "";
 
-      const assistantResponse = await getAssistantResponse({
+      const pendingId = crypto.randomUUID();
+      const pendingMessage: LocalMessage = {
+        id: pendingId,
+        role: "assistant",
+        content: "",
+        dateCreated: new Date(),
+        isPending: true,
+      };
+      setTimeout(() => {
+        setChatHistory((prev) => [...prev, pendingMessage]);
+      }, 500);
+
+      const assistantResponseRaw = await getAssistantResponse({
         data: { messages: chatHistoryWithInput, highlight },
       });
+      const assistantResponse: LocalMessage = {
+        ...assistantResponseRaw,
+        id: pendingId,
+      };
 
-      setChatHistory([...chatHistoryWithInput, assistantResponse]);
+      setChatHistory((prev) =>
+        prev.map((msg) => (msg.id === pendingId ? assistantResponse : msg))
+      );
     } finally {
       setAwaitingResponse(false);
     }
@@ -134,7 +162,7 @@ export default function AssistantCard({
         <motion.div
           key="assistant-card"
           id="assistant-card"
-          className="fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-6 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
+          className="fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-4 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
           initial={{ opacity: 0, originX: 1, originY: 0 }}
           animate={{
             opacity: 1,
@@ -164,31 +192,41 @@ export default function AssistantCard({
               ref={messagesRef}
               className="my-3 flex min-h-0 flex-1 flex-col overflow-y-auto gap-2 text-sm"
             >
-              {chatHistory.map((msg) => (
-                <div
-                  key={msg.dateCreated.toISOString() + msg.role}
-                  className={cn(
-                    "px-2 py-1 rounded-md whitespace-pre-wrap flex flex-col",
-                    msg.role === "user"
-                      ? "self-end bg-emerald-500 text-white"
-                      : "self-start bg-gray-100 text-black"
-                  )}
-                >
-                  <p>{msg.content}</p>
-                  <p className="self-end mt-1 text-xs">
-                    {msg.dateCreated.toLocaleTimeString()}
-                  </p>
-                </div>
-              ))}
-              {awaitingResponse && (
-                <div className="self-start px-2 py-1 rounded-md whitespace-pre-wrap flex flex-col bg-gray-100 text-black">
-                  <div className="flex flex-row gap-2 p-2">
-                    <div className="size-2 rounded-full bg-gray-300 animate-bounce" />
-                    <div className="size-2 rounded-full bg-gray-300 animate-bounce [animation-delay:-.3s]" />
-                    <div className="size-2 rounded-full bg-gray-300 animate-bounce [animation-delay:-.5s]" />
-                  </div>
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {chatHistory.map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className={cn(
+                      "px-2 py-1 rounded-md whitespace-pre-wrap flex flex-col",
+                      msg.role === "user"
+                        ? "self-end bg-emerald-500 text-white"
+                        : "self-start bg-gray-100 text-black"
+                    )}
+                  >
+                    {msg.isPending ? (
+                      <div className="flex flex-row gap-2 p-2">
+                        <div className="size-2 rounded-full bg-gray-300 animate-bounce" />
+                        <div className="size-2 rounded-full bg-gray-300 animate-bounce [animation-delay:-.3s]" />
+                        <div className="size-2 rounded-full bg-gray-300 animate-bounce [animation-delay:-.5s]" />
+                      </div>
+                    ) : (
+                      <p>{msg.content}</p>
+                    )}
+                    {!msg.isPending && (
+                      <p className="self-end mt-1 text-xs">
+                        {msg.dateCreated.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
             <div>
               <InputWithSubmit
