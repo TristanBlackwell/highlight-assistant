@@ -14,6 +14,7 @@ import { EXCERPT } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface Highlight {
+  id: string;
   start: number;
   end: number;
   text: string;
@@ -122,6 +123,7 @@ function Home() {
 
       if (start !== end) {
         const newHighlight = {
+          id: crypto.randomUUID(),
           start: Math.min(start, end),
           end: Math.max(start, end),
           text: EXCERPT.slice(Math.min(start, end), Math.max(start, end)),
@@ -145,19 +147,19 @@ function Home() {
     };
   }, [getCharOffset, highlightMode, mergeHighlights]);
 
-  function renderWithHighlights(text: string, highlights) {
+  function renderWithHighlights(text: string, highlights: Highlight[]) {
     if (!highlights.length) return text;
 
     const sorted = [...highlights].sort((a, b) => a.start - b.start);
     const parts: ReactElement[] = [];
     let lastIndex = 0;
 
-    sorted.forEach(({ start, end }, i) => {
+    sorted.forEach(({ id, start, end }) => {
       parts.push(
-        <span key={`t-${i}-before`}>{text.slice(lastIndex, start)}</span>
+        <span key={`t-${id}-before`}>{text.slice(lastIndex, start)}</span>
       );
       parts.push(
-        <span key={`t-${i}-hl`} className="bg-emerald-300 text-emerald-900">
+        <span key={`t-${id}-hl`} className="bg-emerald-300 text-emerald-900">
           {text.slice(start, end)}
         </span>
       );

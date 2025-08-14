@@ -134,7 +134,7 @@ export default function AssistantCard({
         <motion.div
           key="assistant-card"
           id="assistant-card"
-          className="absolute fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-6 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
+          className="fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-6 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
           initial={{ opacity: 0, originX: 1, originY: 0 }}
           animate={{
             opacity: 1,
@@ -175,11 +175,20 @@ export default function AssistantCard({
                   )}
                 >
                   <p>{msg.content}</p>
-                  <p className="self-end mt-2 text-xs">
+                  <p className="self-end mt-1 text-xs">
                     {msg.dateCreated.toLocaleTimeString()}
                   </p>
                 </div>
               ))}
+              {awaitingResponse && (
+                <div className="self-start px-2 py-1 rounded-md whitespace-pre-wrap flex flex-col bg-gray-100 text-black">
+                  <div className="flex flex-row gap-2 p-2">
+                    <div className="size-2 rounded-full bg-gray-300 animate-bounce" />
+                    <div className="size-2 rounded-full bg-gray-300 animate-bounce [animation-delay:-.3s]" />
+                    <div className="size-2 rounded-full bg-gray-300 animate-bounce [animation-delay:-.5s]" />
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <InputWithSubmit
