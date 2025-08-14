@@ -134,7 +134,7 @@ export default function AssistantCard({
         <motion.div
           key="assistant-card"
           id="assistant-card"
-          className="absolute top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-6 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
+          className="absolute fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-6 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
           initial={{ opacity: 0, originX: 1, originY: 0 }}
           animate={{
             opacity: 1,
