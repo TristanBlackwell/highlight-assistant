@@ -2,7 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import { createServerFn } from "@tanstack/react-start";
 import { generateText } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import z from "zod";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -82,6 +82,7 @@ export default function AssistantCard({
   handleOpenChange,
 }: Readonly<AssistantCardProps>) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const [awaitingResponse, setAwaitingResponse] = useState(false);
 
   const [chatHistory, setChatHistory] = useState<Message[]>(testMessages);
@@ -118,13 +119,22 @@ export default function AssistantCard({
     }
   };
 
+  useEffect(() => {
+    if (messagesRef.current && chatHistory.length) {
+      messagesRef.current.scrollTo({
+        top: messagesRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [chatHistory]);
+
   return (
     <AnimatePresence mode="wait">
       {open && (
         <motion.div
           key="assistant-card"
           id="assistant-card"
-          className="absolute top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md max-h-2/3 px-6 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300"
+          className="absolute top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-6 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
           initial={{ opacity: 0, originX: 1, originY: 0 }}
           animate={{
             opacity: 1,
@@ -150,19 +160,22 @@ export default function AssistantCard({
             <p className="mt-1 text-sm text-gray-500">
               Ask a question about the highlighted text.
             </p>
-            <div className="my-3 flex flex-1 flex-col overflow-y-auto gap-2 text-sm">
+            <div
+              ref={messagesRef}
+              className="my-3 flex min-h-0 flex-1 flex-col overflow-y-auto gap-2 text-sm"
+            >
               {chatHistory.map((msg) => (
                 <div
-                  key={msg.content}
+                  key={msg.dateCreated.toISOString() + msg.role}
                   className={cn(
-                    "px-2 py-1 rounded-md whitespace-pre-wrap",
+                    "px-2 py-1 rounded-md whitespace-pre-wrap flex flex-col",
                     msg.role === "user"
                       ? "self-end bg-emerald-500 text-white"
                       : "self-start bg-gray-100 text-black"
                   )}
                 >
                   <p>{msg.content}</p>
-                  <p className="float-end mt-2">
+                  <p className="self-end mt-2 text-xs">
                     {msg.dateCreated.toLocaleTimeString()}
                   </p>
                 </div>

@@ -9,7 +9,7 @@ interface InputProps extends React.ComponentProps<typeof BaseInput> {
 }
 
 const baseInputStyles =
-  "h-10 w-full max-w-64 rounded-md border border-gray-200 pl-3.5 text-base text-gray-900 focus:outline focus:-outline-offset-1 focus:outline-blue-800";
+  "h-10 w-full rounded-md border border-gray-200 pl-3.5 text-base text-gray-900 focus:outline focus:-outline-offset-1 focus:outline-blue-800";
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ children, className, inputWrapperClassName, ...props }, ref) => {
