@@ -1,6 +1,5 @@
 import { Input as BaseInput } from "@base-ui-components/react/input";
 import * as React from "react";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import ArrowTurnDownLeftIcon from "../icons/arrowTurnDownLeft";
 
@@ -28,15 +27,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = "Input";
 
-const InputWithSubmit = React.forwardRef<
-  HTMLInputElement,
-  InputProps & { onButtonSubmit?: (input: string) => void }
->(
-  (
-    { children, className, inputWrapperClassName, onButtonSubmit, ...props },
-    ref
-  ) => {
-    const [inputValue, setInputValue] = useState<string>("");
+const InputWithSubmit = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ children, className, inputWrapperClassName, ...props }, ref) => {
+    const submitButtonRef = React.useRef<HTMLButtonElement>(null);
     return (
       <div
         className={cn(
@@ -52,23 +45,16 @@ const InputWithSubmit = React.forwardRef<
             "border-none block min-w-0 grow py-1.5 pr-3 pl-1 text-base text-gray-600 placeholder:text-gray-400 focus:outline-none sm:text-sm/6",
             className
           )}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              e.preventDefault();
-              if (onButtonSubmit) {
-                onButtonSubmit(inputValue);
-              }
+              submitButtonRef.current?.click();
             }
           }}
           {...props}
         />
         <button
+          ref={submitButtonRef}
           type="submit"
-          onClick={() =>
-            onButtonSubmit ? onButtonSubmit(inputValue) : undefined
-          }
           className="grid shrink-0 grid-cols-1 focus-within:relative p-1 rounded-md bg-emerald-500 hover:outline outline-emerald-100"
         >
           <ArrowTurnDownLeftIcon className="size-4 text-gray-100" />
@@ -77,6 +63,6 @@ const InputWithSubmit = React.forwardRef<
     );
   }
 );
-Input.displayName = "InputWithSubmit";
+InputWithSubmit.displayName = "InputWithSubmit";
 
 export { Input, InputWithSubmit };

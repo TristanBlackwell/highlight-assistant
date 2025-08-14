@@ -13,17 +13,20 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.10",
     "@base-ui-components/react": "^1.0.0-beta.2",
     "@tailwindcss/vite": "^4.1.11",
     "@tanstack/react-router": "^1.130.12",
     "@tanstack/react-start": "^1.130.15",
+    "ai": "^5.0.10",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.12",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
-    "vite": "^7.0.6"
+    "vite": "^7.0.6",
+    "zod": "^4.0.17"
   },
   "devDependencies": {
     "@biomejs/biome": "2.1.3",

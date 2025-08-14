@@ -184,6 +184,7 @@ function Home() {
         </Button>
       </div>
       <AssistantCard
+        highlight={highlights.length ? highlights[0].text : ""}
         open={assistantCardOpen}
         handleOpenChange={(open) => {
           setAssistantCardOpen(open);
