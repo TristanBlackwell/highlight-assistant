@@ -26,13 +26,11 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const [highlightMode, setHighlightMode] = useState(false);
+  const [highlight, setHighlight] = useState<Highlight | null>(null);
   const [highlightAnchor, setHighlightAnchor] = useState<{
     getBoundingClientRect: () => DOMRect;
-    contextElement: HTMLElement;
   } | null>(null);
   const [assistantCardOpen, setAssistantCardOpen] = useState(false);
-
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
 
   const textContainerRef = useRef<HTMLParagraphElement>(null);
 
@@ -67,28 +65,40 @@ function Home() {
     return count;
   }, []);
 
-  const mergeHighlights = useCallback((ranges) => {
-    if (!ranges.length) return [];
-
-    // Sort by start index
-    const sorted = [...ranges].sort((a, b) => a.start - b.start);
-    const merged = [sorted[0]];
-
-    for (let i = 1; i < sorted.length; i++) {
-      const last = merged[merged.length - 1];
-      const current = sorted[i];
-
-      if (current.start <= last.end) {
-        // Merge overlaps or touching ranges
-        last.end = Math.max(last.end, current.end);
-        last.text = EXCERPT.slice(last.start, last.end);
-      } else {
-        merged.push(current);
+  const mergeHighlights = useCallback(
+    (
+      previousHighlight: Highlight | null,
+      newHighlight: Highlight | null
+    ): Highlight | null => {
+      if (!newHighlight) {
+        return previousHighlight;
       }
-    }
+      if (!previousHighlight) {
+        return newHighlight;
+      }
 
-    return merged;
-  }, []);
+      // Sort by start index
+      const sorted = [previousHighlight, newHighlight].sort(
+        (a, b) => a.start - b.start
+      );
+
+      if (sorted[1].start <= sorted[0].end) {
+        // Merge overlaps or touching ranges
+        const mergedStart = sorted[0].start;
+        const mergedEnd = Math.max(sorted[0].end, sorted[1].end);
+        return {
+          id: crypto.randomUUID(),
+          start: mergedStart,
+          end: mergedEnd,
+          text: EXCERPT.slice(mergedStart, mergedEnd),
+        };
+      } else {
+        // Independent, return the new one
+        return newHighlight;
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const handleHighlightSelection = () => {
@@ -122,20 +132,19 @@ function Home() {
       );
 
       if (start !== end) {
-        const newHighlight = {
+        const newHighlight: Highlight = {
           id: crypto.randomUUID(),
           start: Math.min(start, end),
           end: Math.max(start, end),
           text: EXCERPT.slice(Math.min(start, end), Math.max(start, end)),
         };
 
-        setHighlights((prev) => mergeHighlights([...prev, newHighlight]));
+        setHighlight((prev) => mergeHighlights(prev, newHighlight));
       }
 
       requestAnimationFrame(() => {
         setHighlightAnchor({
           getBoundingClientRect: () => rect,
-          contextElement: document.body,
         });
       });
     };
@@ -147,26 +156,28 @@ function Home() {
     };
   }, [getCharOffset, highlightMode, mergeHighlights]);
 
-  function renderWithHighlights(text: string, highlights: Highlight[]) {
-    if (!highlights.length) return text;
+  function renderWithHighlights(text: string) {
+    if (!highlight) return text;
 
-    const sorted = [...highlights].sort((a, b) => a.start - b.start);
     const parts: ReactElement[] = [];
     let lastIndex = 0;
 
-    sorted.forEach(({ id, start, end }) => {
-      parts.push(
-        <span key={`t-${id}-before`}>{text.slice(lastIndex, start)}</span>
-      );
-      parts.push(
-        <span key={`t-${id}-hl`} className="bg-emerald-300 text-emerald-900">
-          {text.slice(start, end)}
-        </span>
-      );
-      lastIndex = end;
-    });
-
+    parts.push(
+      <span key={`t-${highlight.id}-before`}>
+        {text.slice(lastIndex, highlight.start)}
+      </span>
+    );
+    parts.push(
+      <span
+        key={`t-${highlight.id}-hl`}
+        className="bg-emerald-300 text-emerald-900"
+      >
+        {text.slice(highlight.start, highlight.end)}
+      </span>
+    );
+    lastIndex = highlight.end;
     parts.push(<span key="t-end">{text.slice(lastIndex)}</span>);
+
     return parts;
   }
 
@@ -186,7 +197,7 @@ function Home() {
         </Button>
       </div>
       <AssistantCard
-        highlight={highlights.length ? highlights[0].text : ""}
+        highlight={highlight?.text ?? ""}
         open={assistantCardOpen}
         handleOpenChange={(open) => {
           setAssistantCardOpen(open);
@@ -214,7 +225,7 @@ function Home() {
                 "selection:bg-emerald-300 selection:text-emerald-900"
             )}
           >
-            {renderWithHighlights(EXCERPT, highlights)}
+            {renderWithHighlights(EXCERPT)}
           </p>
         </div>
       </div>
