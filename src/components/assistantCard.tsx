@@ -138,10 +138,36 @@ export default function AssistantCard({
       const decoder = new TextDecoder();
       let buffer = "";
       let metadataReceived = false;
+      let contentBuffer = "";
+      let streamingDone = false;
+
+      const typingSpeed = 50; // characters per second
+      const intervalMs = 100; // update every 100ms
+      const charsPerInterval = Math.floor(typingSpeed * (intervalMs / 1000));
+
+      const typingInterval = setInterval(() => {
+        if (contentBuffer.length > 0) {
+          const charsToAdd = Math.min(charsPerInterval, contentBuffer.length);
+          const toAdd = contentBuffer.slice(0, charsToAdd);
+          contentBuffer = contentBuffer.slice(charsToAdd);
+          setChatHistory((prev) =>
+            prev.map((msg) =>
+              msg.id === pendingId
+                ? { ...msg, content: msg.content + toAdd, isPending: false }
+                : msg
+            )
+          );
+        } else if (streamingDone) {
+          clearInterval(typingInterval);
+        }
+      }, intervalMs);
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          streamingDone = true;
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
 
@@ -166,37 +192,17 @@ export default function AssistantCard({
                         role: data.role,
                         dateCreated: new Date(data.dateCreated),
                         content: "",
-                        isPending: false,
                       }
                     : msg
                 )
               );
               metadataReceived = true;
             } else if (data.content) {
-              setChatHistory((prev) =>
-                prev.map((msg) =>
-                  msg.id === pendingId
-                    ? {
-                        ...msg,
-                        content: msg.content + data.content,
-                        isPending: false,
-                      }
-                    : msg
-                )
-              );
+              contentBuffer += data.content;
             }
           }
         }
       }
-
-      // const assistantResponse: LocalMessage = {
-      //   ...assistantResponseStream,
-      //   id: pendingId,
-      // };
-
-      // setChatHistory((prev) =>
-      //   prev.map((msg) => (msg.id === pendingId ? assistantResponse : msg))
-      // );
     } finally {
       setAwaitingResponse(false);
     }
