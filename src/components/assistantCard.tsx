@@ -16,7 +16,7 @@ const messageSchema = z.object({
 });
 type Message = z.infer<typeof messageSchema>;
 
-type LocalMessage = Message & { isPending?: boolean };
+type LocalMessage = Message & { isPending?: boolean; isFinal?: boolean };
 
 const assistantRequestSchema = z.object({
   messages: messageSchema.array(),
@@ -102,13 +102,14 @@ export default function AssistantCard({
       if (!inputRef.current) {
         throw new Error("Unable to determine input value");
       }
-      const chatHistoryWithInput: Message[] = [
+      const chatHistoryWithInput: LocalMessage[] = [
         ...chatHistory,
         {
           id: crypto.randomUUID(),
           role: "user",
           content: inputRef.current.value,
           dateCreated: new Date(),
+          isFinal: true,
         },
       ];
       setChatHistory(chatHistoryWithInput);
@@ -121,6 +122,7 @@ export default function AssistantCard({
         content: "",
         dateCreated: new Date(),
         isPending: true,
+        isFinal: false,
       };
       setTimeout(() => {
         setChatHistory((prev) => [...prev, pendingMessage]);
@@ -159,6 +161,11 @@ export default function AssistantCard({
           );
         } else if (streamingDone) {
           clearInterval(typingInterval);
+          setChatHistory((prev) =>
+            prev.map((msg) =>
+              msg.id === pendingId ? { ...msg, isFinal: true } : msg
+            )
+          );
         }
       }, intervalMs);
 
@@ -223,7 +230,7 @@ export default function AssistantCard({
         <motion.div
           key="assistant-card"
           id="assistant-card"
-          className="fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md max-h-2/3 px-4 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
+          className="fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] w-md max-h-2/3 px-4 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
           initial={{ opacity: 0, originX: 1, originY: 0 }}
           animate={{
             opacity: 1,
@@ -280,7 +287,7 @@ export default function AssistantCard({
                     ) : (
                       <p>{msg.content}</p>
                     )}
-                    {!msg.isPending && (
+                    {msg.isFinal && (
                       <p className="self-end mt-1 text-xs">
                         {msg.dateCreated.toLocaleTimeString([], {
                           hour: "2-digit",
