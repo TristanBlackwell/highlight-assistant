@@ -1,6 +1,6 @@
 import { openai } from "@ai-sdk/openai";
 import { createServerFn } from "@tanstack/react-start";
-import { generateText } from "ai";
+import { streamText } from "ai";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import z from "zod";
@@ -23,10 +23,10 @@ const assistantRequestSchema = z.object({
   highlight: z.string().min(1),
 });
 
-const getAssistantResponse = createServerFn({ method: "POST" })
+const getAssistantResponse = createServerFn({ method: "POST", response: "raw" })
   .validator(assistantRequestSchema)
   .handler(async ({ data }) => {
-    const { text } = await generateText({
+    const result = streamText({
       model: openai("gpt-5-mini"),
       messages: [
         {
@@ -45,39 +45,34 @@ const getAssistantResponse = createServerFn({ method: "POST" })
       ],
     });
 
-    return { role: "assistant", content: text, dateCreated: new Date() };
+    const encoder = new TextEncoder();
+    const assistantStream = new ReadableStream({
+      async start(controller) {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ role: "assistant", dateCreated: new Date() })}\n\n`
+          )
+        );
+
+        for await (const textPart of result.textStream) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ content: textPart })}\n\n`)
+          );
+        }
+
+        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+        controller.close();
+      },
+    });
+
+    return new Response(assistantStream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   });
-
-const testMessages = [
-  {
-    id: crypto.randomUUID(),
-    role: "user" as const,
-    content: "Explain this",
-    dateCreated: new Date(),
-  },
-  {
-    id: crypto.randomUUID(),
-    role: "assistant" as const,
-    content: `Short version: finitism is the view that only finite mathematical things truly exist. Finitists accept individual finite objects (like the number 7, or the set {1,2,3}) but deny the existence of completed infinite objects (like the set of all natural numbers or the set of all real numbers).
-
-Key points and contrasts
-- Actual vs potential infinity: finitists typically allow potential infinity (you can always count one more) but deny actual or completed infinity (there is no completed infinite set N = {0,1,2,...}).  
-- Against Platonism: unlike mathematical Platonism (which says infinite sets are real abstract objects), finitism says such infinite wholes do not exist.  
-- Variants: ultrafinitism is a stronger form that even doubts the meaningfulness or existence of extremely large finite numbers; Hilbert-style finitism is a milder, proof-theoretic restriction used to justify parts of mathematics.  
-- Relation to other philosophies: intuitionism and constructive mathematics share some skepticism about classical infinities, but they are distinct positions with different technical commitments.
-
-Consequences and examples
-- A finitist would reject statements that assert existence of infinite sets as completed entities, and would need to reformulate analysis and set theory in purely finitary terms.  
-- Many everyday finite mathematical operations are uncontroversial to finitists (addition, finite sets, finite proofs). What’s denied is the metaphysical existence of infinite collections like the continuum or the set of all naturals.
-
-Why people hold it
-- Some find it philosophically safer (avoids mysterious actual infinities) or closer to physical reality.  
-- Critics argue that standard mathematics and its powerful results rely heavily on infinite concepts that work extremely well, so denying them is costly.
-
-That’s the doctrine in a nutshell.`,
-    dateCreated: new Date(),
-  },
-];
 
 interface AssistantCardProps {
   highlight: string;
@@ -131,17 +126,77 @@ export default function AssistantCard({
         setChatHistory((prev) => [...prev, pendingMessage]);
       }, 500);
 
-      const assistantResponseRaw = await getAssistantResponse({
+      const assistantResponseStream = await getAssistantResponse({
         data: { messages: chatHistoryWithInput, highlight },
       });
-      const assistantResponse: LocalMessage = {
-        ...assistantResponseRaw,
-        id: pendingId,
-      };
 
-      setChatHistory((prev) =>
-        prev.map((msg) => (msg.id === pendingId ? assistantResponse : msg))
-      );
+      if (!assistantResponseStream.body) {
+        throw new Error("No response body");
+      }
+
+      const reader = assistantResponseStream.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let metadataReceived = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+
+        for (const event of events) {
+          if (event.startsWith("data: ")) {
+            const dataStr = event.slice(6);
+            if (dataStr === "[DONE]") {
+              // Streaming complete
+              continue;
+            }
+            const data = JSON.parse(dataStr);
+
+            if (!metadataReceived && data.role && data.dateCreated) {
+              setChatHistory((prev) =>
+                prev.map((msg) =>
+                  msg.id === pendingId
+                    ? {
+                        ...msg,
+                        role: data.role,
+                        dateCreated: new Date(data.dateCreated),
+                        content: "",
+                        isPending: false,
+                      }
+                    : msg
+                )
+              );
+              metadataReceived = true;
+            } else if (data.content) {
+              setChatHistory((prev) =>
+                prev.map((msg) =>
+                  msg.id === pendingId
+                    ? {
+                        ...msg,
+                        content: msg.content + data.content,
+                        isPending: false,
+                      }
+                    : msg
+                )
+              );
+            }
+          }
+        }
+      }
+
+      // const assistantResponse: LocalMessage = {
+      //   ...assistantResponseStream,
+      //   id: pendingId,
+      // };
+
+      // setChatHistory((prev) =>
+      //   prev.map((msg) => (msg.id === pendingId ? assistantResponse : msg))
+      // );
     } finally {
       setAwaitingResponse(false);
     }
