@@ -162,7 +162,7 @@ export default function AssistantCard({
         <motion.div
           key="assistant-card"
           id="assistant-card"
-          className="fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md h-2/3 px-4 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
+          className="fixed top-6 right-6 origin-[var(--transform-origin)] rounded-lg bg-[canvas] max-w-md max-h-2/3 px-4 py-4 flex flex-col text-gray-900 shadow-lg shadow-gray-200 outline outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300 overflow-hidden"
           initial={{ opacity: 0, originX: 1, originY: 0 }}
           animate={{
             opacity: 1,
@@ -173,7 +173,10 @@ export default function AssistantCard({
             transition: { duration: 0.3, ease: "easeInOut" },
           }}
         >
-          <form onSubmit={handleSubmit} className="h-full flex flex-col">
+          <form
+            onSubmit={handleSubmit}
+            className="flex flex-1 flex-col overflow-y-scroll"
+          >
             <div className="flex justify-between items-center">
               <h4 className="font-semibold">Assistant</h4>
               <Button

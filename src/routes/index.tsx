@@ -77,7 +77,6 @@ function Home() {
         return newHighlight;
       }
 
-      // Sort by start index
       const sorted = [previousHighlight, newHighlight].sort(
         (a, b) => a.start - b.start
       );
